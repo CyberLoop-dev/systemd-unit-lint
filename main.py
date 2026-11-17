@@ -14,7 +14,10 @@ def lint(text):
     except configparser.Error as exc:
         return [{"level":"error","code":"parse-error","message":str(exc)}]
     def value(section, key, default=""):
-        return parser.get(section, key, fallback=default).strip() if parser.has_section(section) else default
+        if not parser.has_section(section):
+            return default
+        raw = parser.get(section, key, fallback=default)
+        return (raw or "").strip()
     if not parser.has_section("Unit"):
         issues.append({"level":"warning","code":"missing-unit-section","message":"No [Unit] section was found."})
     elif not value("Unit", "Description"):
@@ -27,17 +30,16 @@ def lint(text):
     user = value("Service", "User")
     if not user:
         issues.append({"level":"warning","code":"implicit-user","message":"No User= is set; a system service may run with elevated privileges."})
-    elif user == "root":
+    elif user.lower() == "root":
         issues.append({"level":"warning","code":"root-user","message":"User=root is explicit; check whether the service really needs full privileges."})
     checks = [
-        ("NoNewPrivileges","yes","missing-no-new-privileges","Consider NoNewPrivileges=yes."),
-        ("PrivateTmp","yes","missing-private-tmp","Consider PrivateTmp=yes to isolate temporary directories."),
-        ("ProtectSystem","strict","weak-protect-system","Consider an appropriate ProtectSystem= setting."),
-        ("ProtectHome","yes","missing-protect-home","Consider ProtectHome=yes or a narrower setting."),
+        ("NoNewPrivileges","missing-no-new-privileges","Consider NoNewPrivileges=yes."),
+        ("PrivateTmp","missing-private-tmp","Consider PrivateTmp=yes to isolate temporary directories."),
+        ("ProtectSystem","weak-protect-system","Consider an appropriate ProtectSystem= setting."),
+        ("ProtectHome","missing-protect-home","Consider ProtectHome=yes or a narrower setting."),
     ]
-    for key, expected, code, message in checks:
-        actual = value("Service", key).lower()
-        if not actual:
+    for key, code, message in checks:
+        if not value("Service", key):
             issues.append({"level":"warning","code":code,"message":message})
     exec_start = value("Service", "ExecStart")
     if exec_start.startswith(("/bin/sh -c", "/bin/bash -c")):
