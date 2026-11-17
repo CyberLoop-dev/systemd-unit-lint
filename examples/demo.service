@@ -1,0 +1,11 @@
+[Unit]
+Description=Example background worker
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/example-worker
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
